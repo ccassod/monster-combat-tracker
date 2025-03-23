@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOR Monster Combat Tracker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Merriweather&display=swap');
+
+        body { font-family: 'Merriweather', serif; background-color: #f7f0e1; }
+        .monster-block {
+            border: 2px solid #8b6b4e; border-radius: 8px; padding: 8px; margin: 5px;
+            width: 280px; background-color: #fcf9f4; position: relative; display: inline-block; vertical-align: top;
+        }
+        .remove-btn {
+            position: absolute; top: 5px; right: 8px;
+            cursor: pointer; font-weight: bold; color: red; border: none; background: none;
+        }
+        .stat { margin: 3px; display: inline-block; text-align: center; width: 80px; }
+        .stat button { margin: 0 1px; }
+        .attribute-level { font-size: 1.5rem; font-family: 'Cinzel', serif; border: 1px solid #8b6b4e; padding: 2px 8px; border-radius: 4px; }
+        .monster-name { font-size: 1.2rem; }
+        .traits, .category, .description { font-style: italic; font-size: 0.8rem; margin-top: 3px; }
+    </style>
+</head>
+<body>
+
+<select id="monster-select"></select>
+<button onclick="addMonster()">Add Monster</button>
+
+<div id="combat-area"></div>
+
+<script>
+let monstersDatabase = {};
+let counter = 0;
+
+async function loadDatabaseAndInit() {
+    try {
+        const response = await fetch('monsters_database.json');
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        monstersDatabase = await response.json();
+        initDropdown();
+    } catch (error) {
+        console.error('Fetching database failed:', error);
+        alert('Fetching database failed: ' + error.message);
+    }
+}
+
+function initDropdown() {
+    const select = document.getElementById('monster-select');
+    select.innerHTML = '';
+    for (let name in monstersDatabase) {
+        let option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+    }
+}
+
+function addMonster() {
+    const name = document.getElementById('monster-select').value;
+    const data = monstersDatabase[name];
+    const id = name + '-' + (++counter);
+
+    let block = document.createElement('div');
+    block.id = id; block.className = 'monster-block';
+    block.innerHTML = `<button class="remove-btn" onclick="this.parentElement.remove()">✖</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="monster-name">${name}</div><div class="attribute-level">${data["Attribute Level"]}</div>
+    </div>
+    <div style="text-align:center;">
+        ${['Endurance','Might','Hate','Resolve','Parry','Armour'].map(stat=>`
+        <div class="stat">
+            <div><span id="${id}-${stat}-current">${data[stat]}</span>/<span id="${id}-${stat}-max">${data[stat]}</span></div>
+            <div>${stat}</div>
+            <button onclick="modStat('${id}','${stat}',1)">+</button><button onclick="modStat('${id}','${stat}',-1)">–</button>
+        </div>`).join('')}
+    </div>
+    <h4>Combat Proficiencies</h4><ul>${data["Combat Proficiencies"].map(p=>`<li>${p}</li>`).join('')}</ul>
+    <h4>Fell Abilities</h4><ul>${data["Fell Abilities"].map(f=>`<li><em>${f}</em></li>`).join('')}</ul>
+    <div class="traits">${data.Traits.join(', ')}</div>
+    <div class="category">${data.Category} > ${data.Subcategory}</div>
+    <div class="description">${data.Description}</div>`;
+
+    document.getElementById('combat-area').appendChild(block);
+}
+
+function modStat(id, stat, change) {
+    let curr = document.getElementById(`${id}-${stat}-current`);
+    let max = parseInt(document.getElementById(`${id}-${stat}-max`).textContent);
+    let val = parseInt(curr.textContent) + change;
+    val = Math.max(0, Math.min(val, max));
+    curr.textContent = val;
+
+    let block = document.getElementById(id);
+    let endurance = parseInt(document.getElementById(`${id}-Endurance-current`).textContent);
+    let might = parseInt(document.getElementById(`${id}-Might-current`).textContent);
+    let hate = parseInt(document.getElementById(`${id}-Hate-current`).textContent);
+    let resolve = parseInt(document.getElementById(`${id}-Resolve-current`).textContent);
+    let hateMax = parseInt(document.getElementById(`${id}-Hate-max`).textContent);
+    let resolveMax = parseInt(document.getElementById(`${id}-Resolve-max`).textContent);
+
+    block.style.backgroundColor = '#fcf9f4';
+    if (endurance==0||might==0) block.style.backgroundColor = '#f8d7da';
+    else if ((hateMax>0&&hate==0)||(resolveMax>0&&resolve==0)) block.style.backgroundColor = '#e2e3e5';
+}
+
+document.addEventListener('DOMContentLoaded', loadDatabaseAndInit);
+</script>
+
+</body>
+</html>
